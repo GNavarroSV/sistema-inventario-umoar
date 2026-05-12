@@ -1,0 +1,39 @@
+node_modules
+# Keep environment variables out of version control
+.env
+
+/src/generated/prisma
+
+\dist
+\.next
+# Nestjs specific
+/dist
+/node_modules
+/build
+/tmp
+
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# dotenv environment variable files
+.env
+.env.development
+.env.test
+.env.production
+
+# temp directory
+.temp
+.tmp
+
+# Local assistant/editor settings
+.claude/
+
+# Local documentation drafts
+docs/
+/lib

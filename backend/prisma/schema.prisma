@@ -1,0 +1,427 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id          Int        @id @default(autoincrement())
+  name        String     @unique
+  type        RoleType
+  description String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  menus       RoleMenu[]
+  users       User[]
+
+  @@map("roles")
+}
+
+model Menu {
+  id        Int        @id @default(autoincrement())
+  name      String
+  label     String
+  path      String
+  icon      String?
+  order     Int        @default(0)
+  parent_id Int?
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  parent    Menu?      @relation("MenuParent", fields: [parent_id], references: [id])
+  children  Menu[]     @relation("MenuParent")
+  roles     RoleMenu[]
+
+  @@map("menus")
+}
+
+model RoleMenu {
+  id        Int      @id @default(autoincrement())
+  roleId    Int
+  menuId    Int
+  createdAt DateTime @default(now())
+  menu      Menu     @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, menuId])
+  @@map("role_menus")
+}
+
+model User {
+  id                  Int                  @id @default(autoincrement())
+  name                String
+  email               String               @unique
+  password            String
+  institutionalId     String?
+  isActive            Boolean              @default(true)
+  roleId              Int
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  createdAssignments  AssetAssignment[]    @relation("AssignmentByUser")
+  assetHistoryChanges AssetHistory[]       @relation("AssetHistoryChangedBy")
+  stockMovements      AssetStockMovement[] @relation("StockMovementPerformedBy")
+  importBatches       ImportBatch[]        @relation("ImportBatchCreatedByUser")
+  history             AuditLog[]
+  role                Role                 @relation(fields: [roleId], references: [id])
+
+  @@map("users")
+}
+
+model Person {
+  id                  Int               @id @default(autoincrement())
+  name                String
+  email               String?           @unique
+  documentNumber      String?           @unique
+  phone               String?
+  isActive            Boolean           @default(true)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  assignmentsReceived AssetAssignment[] @relation("AssignmentToPerson")
+  previousAssignments AssetAssignment[] @relation("AssignmentPreviousResponsible")
+  assets              Asset[]
+
+  @@index([isActive])
+  @@map("people")
+}
+
+model CostCenter {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  assets      Asset[]
+
+  @@index([isActive])
+  @@map("cost_centers")
+}
+
+model Supplier {
+  id           Int      @id @default(autoincrement())
+  name         String
+  taxId        String?  @unique
+  contactName  String?
+  contactEmail String?
+  phone        String?
+  address      String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  assets       Asset[]
+
+  @@index([name])
+  @@index([isActive])
+  @@map("suppliers")
+}
+
+model Category {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  assets      Asset[]
+
+  @@map("categories")
+}
+
+model Asset {
+  id                  Int                   @id @default(autoincrement())
+  code                String                @unique
+  name                String
+  description         String?
+  categoryId          Int
+  quantity            Int                   @default(1)
+  responsiblePersonId Int?                  @map("responsibleUserId")
+  location            String
+  costCenterId        Int?
+  acquisitionDate     DateTime?
+  disposalDate        DateTime?
+  status              AssetStatus           @default(OPERATIVO)
+  condition           String?
+  unitValue           Float                 @default(0)
+  residualValue       Float?
+  supplierId          Int?
+  invoiceNumber       String?
+  purchaseOrder       String?
+  warrantyEndDate     DateTime?
+  warrantyMonths      Int?
+  depreciationType    DepreciationType      @default(LINEAR)
+  depreciationRate    Float?
+  depreciationMonths  Int?
+  serialNumber        String?
+  manufacturer        String?
+  model               String?
+  isActive            Boolean               @default(true)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  assignments         AssetAssignment[]
+  importItems         ImportBatchItem[]
+  history             AssetHistory[]
+  stockMovements      AssetStockMovement[]
+  category            Category              @relation(fields: [categoryId], references: [id])
+  costCenter          CostCenter?           @relation(fields: [costCenterId], references: [id])
+  responsiblePerson   Person?               @relation(fields: [responsiblePersonId], references: [id])
+  supplier            Supplier?             @relation(fields: [supplierId], references: [id])
+  depreciation        DepreciationSchedule?
+
+  @@index([categoryId])
+  @@index([responsiblePersonId])
+  @@index([costCenterId])
+  @@index([supplierId])
+  @@index([status])
+  @@index([acquisitionDate])
+  @@index([invoiceNumber])
+  @@index([serialNumber])
+  @@map("assets")
+}
+
+enum ImportStrategy {
+  UPSERT
+  INSERT_ONLY
+  DRY_RUN
+}
+
+enum ImportBatchStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum ImportRowStatus {
+  VALID
+  CREATED
+  UPDATED
+  SKIPPED
+  ERROR
+}
+
+model ImportBatch {
+  id              Int               @id @default(autoincrement())
+  fileName        String
+  fileHash        String?
+  strategy        ImportStrategy    @default(UPSERT)
+  status          ImportBatchStatus @default(PENDING)
+  totalRows       Int               @default(0)
+  processedRows   Int               @default(0)
+  createdRows     Int               @default(0)
+  updatedRows     Int               @default(0)
+  skippedRows     Int               @default(0)
+  errorRows       Int               @default(0)
+  notes           String?
+  createdByUserId Int?
+  processedAt     DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  createdByUser User?             @relation("ImportBatchCreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  items         ImportBatchItem[]
+
+  @@index([createdByUserId])
+  @@index([status])
+  @@map("import_batches")
+}
+
+model ImportBatchItem {
+  id               Int             @id @default(autoincrement())
+  batchId          Int
+  rowNumber        Int
+  externalLegacyId String?
+  assetId          Int?
+  status           ImportRowStatus @default(VALID)
+  action           String?
+  rawData          Json
+  changeSet        Json?
+  errorMessage     String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  batch ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  asset Asset?      @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  @@index([batchId])
+  @@index([assetId])
+  @@index([status])
+  @@map("import_batch_items")
+}
+
+model AssetAssignment {
+  id                          Int              @id @default(autoincrement())
+  assetId                     Int
+  assignedToPersonId          Int              @map("assignedToUserId")
+  assignedByUserId            Int?
+  type                        AssignmentType
+  status                      AssignmentStatus @default(ACTIVE)
+  startDate                   DateTime         @default(now())
+  dueDate                     DateTime?
+  returnDate                  DateTime?
+  reason                      String?
+  notes                       String?
+  createdAt                   DateTime         @default(now())
+  updatedAt                   DateTime         @updatedAt
+  quantity                    Int              @default(1)
+  documentUrl                 String?
+  documentPublicId            String?
+  previousResponsiblePersonId Int?
+  asset                       Asset            @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  assignedByUser              User?            @relation("AssignmentByUser", fields: [assignedByUserId], references: [id])
+  assignedToPerson            Person           @relation("AssignmentToPerson", fields: [assignedToPersonId], references: [id])
+  previousResponsiblePerson   Person?          @relation("AssignmentPreviousResponsible", fields: [previousResponsiblePersonId], references: [id])
+
+  @@index([assetId])
+  @@index([assignedToPersonId])
+  @@index([assignedByUserId])
+  @@index([previousResponsiblePersonId])
+  @@index([status])
+  @@index([type])
+  @@map("asset_assignments")
+}
+
+model AssetHistory {
+  id               Int                   @id @default(autoincrement())
+  assetId          Int
+  changedByUserId  Int?
+  eventType        AssetHistoryEventType @default(UPDATED)
+  fieldName        String?
+  oldData          Json?
+  newData          Json?
+  changeSet        Json?
+  previousStatus   AssetStatus?
+  newStatus        AssetStatus?
+  previousValue    Float?
+  newValue         Float?
+  previousLocation String?
+  newLocation      String?
+  previousUser     String?
+  newUser          String?
+  changeReason     String?
+  notes            String?
+  source           String?
+  createdAt        DateTime              @default(now())
+  asset            Asset                 @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  changedByUser    User?                 @relation("AssetHistoryChangedBy", fields: [changedByUserId], references: [id])
+
+  @@index([assetId])
+  @@index([changedByUserId])
+  @@index([eventType])
+  @@map("asset_history")
+}
+
+model AssetStockMovement {
+  id                Int               @id @default(autoincrement())
+  assetId           Int
+  performedByUserId Int?
+  type              StockMovementType
+  quantity          Int
+  freeQuantity      Int               @default(0)
+  previousQuantity  Int
+  newQuantity       Int
+  reason            String
+  notes             String?
+  sourceBreakdown   Json?
+  createdAt         DateTime          @default(now())
+  asset             Asset             @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  performedByUser   User?             @relation("StockMovementPerformedBy", fields: [performedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([assetId])
+  @@index([performedByUserId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("asset_stock_movements")
+}
+
+model DepreciationSchedule {
+  id                Int              @id @default(autoincrement())
+  assetId           Int              @unique
+  initialValue      Float
+  depreciationType  DepreciationType
+  rate              Float
+  months            Int
+  monthlyDeprec     Float
+  accumulatedDeprec Float            @default(0.0)
+  remainingMonths   Int
+  startDate         DateTime
+  endDate           DateTime
+  nextDeprecDate    DateTime
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  asset             Asset            @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@map("depreciation_schedules")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  action    String
+  entity    String
+  entityId  String
+  oldValues String?
+  newValues String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+enum RoleType {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum AssetStatus {
+  OPERATIVO
+  OBSOLETO
+  MAL_ESTADO
+  DESUSO
+  REPARACION
+  DESCARTADO
+}
+
+enum DepreciationType {
+  LINEAR
+  ACCELERATED
+  UNITS_PRODUCED
+}
+
+enum AssignmentType {
+  CUSTODY
+  LOAN
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  RETURNED
+  OVERDUE
+  CANCELLED
+}
+
+enum AssetHistoryEventType {
+  CREATED
+  UPDATED
+  STATUS_CHANGED
+  TRANSFERRED
+  CUSTODY_ASSIGNED
+  LOANED
+  RETURNED
+  DISPOSED
+  STOCK_IN
+  STOCK_OUT
+}
+
+enum StockMovementType {
+  IN
+  OUT
+}

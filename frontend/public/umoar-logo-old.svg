@@ -1,0 +1,25 @@
+<svg width="1200" height="1200" viewBox="0 0 1200 1200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="1200" rx="120" fill="#0B5C2D"/>
+  <g opacity="0.15">
+    <circle cx="600" cy="600" r="410" fill="white"/>
+  </g>
+  <g>
+    <path d="M225 313C225 258.817 269.817 214 324 214H372V780C372 830.81 413.19 872 464 872H536V946H424C314.542 946 225 856.458 225 747V313Z" fill="#08110C"/>
+    <path d="M268 313C268 282.072 293.072 257 324 257H365V739C365 765.51 386.49 787 413 787H491V901H424C338.843 901 268 830.157 268 745V313Z" fill="#0F7A36" stroke="#DFFFE7" stroke-width="7"/>
+    <path d="M296 336C296 314.461 313.461 297 335 297H367V718C367 733.464 379.536 746 395 746H451V857H424C359.758 857 296 793.242 296 728V336Z" fill="#0A4E24"/>
+    <ellipse cx="424" cy="507" rx="96" ry="122" fill="#F7F7F7"/>
+    <path d="M360 500C359 448 393 399 444 389C486 381 526 397 553 431C566 448 572 469 573 491C574 524 564 557 546 581C532 599 512 614 489 621C468 627 446 625 427 618C414 613 399 605 388 592C373 575 360 549 360 500Z" fill="#111111"/>
+    <path d="M374 499C375 460 401 428 439 419C470 411 503 421 524 444C534 455 541 469 543 485C545 513 536 539 522 559C511 574 494 587 477 592C462 596 447 595 433 590C422 586 411 579 403 569C390 553 373 529 374 499Z" fill="#F5F5F5"/>
+    <circle cx="413" cy="507" r="15" fill="#111111"/>
+    <circle cx="471" cy="507" r="15" fill="#111111"/>
+    <path d="M388 466C408 445 438 435 468 438" stroke="#111111" stroke-width="18" stroke-linecap="round"/>
+    <path d="M386 545C404 561 430 571 458 572" stroke="#111111" stroke-width="14" stroke-linecap="round"/>
+    <path d="M378 441C366 449 360 463 359 478" stroke="#111111" stroke-width="12" stroke-linecap="round"/>
+    <path d="M507 439C519 448 526 462 528 477" stroke="#111111" stroke-width="12" stroke-linecap="round"/>
+    <path d="M438 576C426 607 424 644 432 685C458 686 484 681 503 672C495 640 486 607 476 582" fill="#111111"/>
+    <path d="M434 573C438 589 446 603 456 615C470 607 483 592 492 573" stroke="#111111" stroke-width="16" stroke-linecap="round"/>
+  </g>
+  <text x="610" y="570" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="220" font-weight="900" letter-spacing="6">UMOAR</text>
+  <rect x="155" y="780" width="890" height="36" fill="white"/>
+  <text x="170" y="870" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="700">Creando Profesionales Para Grandes Soluciones</text>
+</svg>
