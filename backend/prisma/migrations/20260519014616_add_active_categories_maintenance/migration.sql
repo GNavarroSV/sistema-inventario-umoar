@@ -1,0 +1,1 @@
+-- No-op: this schema already includes categories.isActive in the current baseline.
