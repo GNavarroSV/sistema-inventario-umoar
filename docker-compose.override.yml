@@ -1,0 +1,8 @@
+services:
+  backend:
+    environment:
+      JWT_SECRET: dev-secret-change-me
+
+  frontend:
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3000
