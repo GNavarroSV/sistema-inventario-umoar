@@ -98,6 +98,11 @@ async function assignRoleMenus(roleId: number, menuPaths: string[]) {
 }
 
 async function seedInitialData() {
+  const principalAdminRole = await ensureRole(
+    'Administrador principal',
+    RoleType.ADMIN,
+    'Acceso reservado para administración inicial del sistema',
+  );
   const adminRole = await ensureRole('Administrador', RoleType.ADMIN, 'Acceso total al sistema');
   const managerRole = await ensureRole('Gestor de inventario', RoleType.MANAGER, 'Opera activos y catalogos operativos');
   const employeeRole = await ensureRole('Consulta', RoleType.EMPLOYEE, 'Solo lectura para seguimiento y revision');
@@ -119,6 +124,7 @@ async function seedInitialData() {
     '/dashboard/people',
   ];
 
+  await assignRoleMenus(principalAdminRole.id, adminMenus);
   await assignRoleMenus(adminRole.id, adminMenus);
   await assignRoleMenus(managerRole.id, sharedMenus);
   await assignRoleMenus(employeeRole.id, sharedMenus);
@@ -129,13 +135,31 @@ async function seedInitialData() {
     update: {
       name: 'Administrador',
       password: hashedPassword,
-      roleId: adminRole.id,
+      roleId: principalAdminRole.id,
       isActive: true,
     },
     create: {
       email: 'admin@umoar.edu.sv',
       name: 'Administrador',
       password: hashedPassword,
+      roleId: principalAdminRole.id,
+      isActive: true,
+    },
+  });
+
+  const demoPassword = await bcrypt.hash('Umoar2026$', 10);
+  const demoUser = await prisma.user.upsert({
+    where: { email: 'daniella.mejia@umoar.edu.sv' },
+    update: {
+      name: 'Daniella Mejía',
+      password: demoPassword,
+      roleId: adminRole.id,
+      isActive: true,
+    },
+    create: {
+      email: 'daniella.mejia@umoar.edu.sv',
+      name: 'Daniella Mejía',
+      password: demoPassword,
       roleId: adminRole.id,
       isActive: true,
     },
@@ -143,6 +167,7 @@ async function seedInitialData() {
 
   console.log('Seed inicial completado');
   console.log(`Admin: ${adminUser.email} / Admin123!`);
+  console.log(`Demo: ${demoUser.email} / Umoar2026$`);
 }
 
 async function main() {

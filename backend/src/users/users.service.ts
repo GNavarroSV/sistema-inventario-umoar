@@ -7,6 +7,8 @@ import { RoleType } from '@prisma/client';
 @Injectable()
 export class UsersService {
   constructor(private prisma: PrismaService) {}
+  private readonly principalAdminEmail = 'admin@umoar.edu.sv';
+  private readonly reservedPrincipalRoleName = 'Administrador principal';
 
   async findByEmail(email: string) {
     return this.prisma.user.findUnique({
@@ -126,16 +128,27 @@ export class UsersService {
   }
 
   async updateRole(userId: number, roleId: number) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
 
     if (!user) {
       throw new NotFoundException('Usuario no encontrado');
+    }
+
+    if (user.email === this.principalAdminEmail || user.role.name === this.reservedPrincipalRoleName) {
+      throw new BadRequestException('El rol del administrador principal no se puede modificar.');
     }
 
     const role = await this.prisma.role.findUnique({ where: { id: roleId } });
 
     if (!role) {
       throw new NotFoundException('Rol no encontrado');
+    }
+
+    if (role.name === this.reservedPrincipalRoleName) {
+      throw new BadRequestException('El rol de administrador principal no se puede asignar manualmente.');
     }
 
     return this.prisma.user.update({
@@ -179,6 +192,54 @@ export class UsersService {
     return this.prisma.user.update({
       where: { id: userId },
       data: { isActive },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        isActive: true,
+        createdAt: true,
+        role: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+          },
+        },
+      },
+    });
+  }
+
+  async updatePassword(userId: number, password: string, currentUserId?: number) {
+    const rawPassword = password?.trim();
+
+    if (!rawPassword || rawPassword.length < 6) {
+      throw new BadRequestException('La contraseña debe tener al menos 6 caracteres');
+    }
+
+    const currentUser = currentUserId
+      ? await this.prisma.user.findUnique({ where: { id: currentUserId }, include: { role: true } })
+      : null;
+
+    const isOwnPasswordChange = currentUserId === userId;
+    const isPrincipalAdmin =
+      currentUser?.email === this.principalAdminEmail &&
+      currentUser.role.name === this.reservedPrincipalRoleName;
+
+    if (!currentUser || (!isOwnPasswordChange && !isPrincipalAdmin)) {
+      throw new BadRequestException('Solo puedes cambiar tu propia contraseña. Para otros usuarios se requiere el administrador principal.');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const hashedPassword = await bcrypt.hash(rawPassword, 10);
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
       select: {
         id: true,
         name: true,

@@ -5,7 +5,14 @@ import { EyeClosedIcon, EyeOpenIcon } from '@radix-ui/react-icons';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useAuthContext } from '../../../contexts/auth-context';
 import { useRolesQuery } from '../../../hooks/roles/use-roles';
-import { useCreateUserMutation, useUpdateUserRoleMutation, useUpdateUserStatusMutation, useUsersQuery } from '../../../hooks/users/use-users';
+import {
+  UserDto,
+  useCreateUserMutation,
+  useUpdateUserPasswordMutation,
+  useUpdateUserRoleMutation,
+  useUpdateUserStatusMutation,
+  useUsersQuery,
+} from '../../../hooks/users/use-users';
 import styles from '../admin.module.css';
 
 const emptyUser = {
@@ -21,9 +28,14 @@ export default function UsersAdminPage() {
   const usersQuery = useUsersQuery();
   const rolesQuery = useRolesQuery();
   const createUserMutation = useCreateUserMutation();
+  const updateUserPasswordMutation = useUpdateUserPasswordMutation();
   const updateUserRoleMutation = useUpdateUserRoleMutation();
   const updateUserStatusMutation = useUpdateUserStatusMutation();
   const [isOpen, setIsOpen] = useState(false);
+  const [resetTarget, setResetTarget] = useState<UserDto | null>(null);
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetPasswordConfirm, setResetPasswordConfirm] = useState('');
+  const [resetSuccess, setResetSuccess] = useState<string | null>(null);
   const [form, setForm] = useState(emptyUser);
   const [showPasswords, setShowPasswords] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -32,6 +44,9 @@ export default function UsersAdminPage() {
   const users = usersQuery.data ?? [];
   const roles = rolesQuery.data ?? [];
   const roleOptions = useMemo(() => roles.map((r) => ({ value: r.id, label: r.name })), [roles]);
+  const isPrincipalAdmin =
+    auth.session?.user?.email === 'admin@umoar.edu.sv' &&
+    auth.session?.user?.role?.name === 'Administrador principal';
 
   useEffect(() => {
     if (!form.roleId && roles.length > 0) {
@@ -48,9 +63,14 @@ export default function UsersAdminPage() {
     );
   }, [users]);
 
-  const isSubmitting = createUserMutation.isPending || updateUserRoleMutation.isPending || updateUserStatusMutation.isPending;
+  const isSubmitting =
+    createUserMutation.isPending ||
+    updateUserPasswordMutation.isPending ||
+    updateUserRoleMutation.isPending ||
+    updateUserStatusMutation.isPending;
   const mutationError =
     (createUserMutation.error instanceof Error ? createUserMutation.error.message : null) ??
+    (updateUserPasswordMutation.error instanceof Error ? updateUserPasswordMutation.error.message : null) ??
     (updateUserRoleMutation.error instanceof Error ? updateUserRoleMutation.error.message : null) ??
     (updateUserStatusMutation.error instanceof Error ? updateUserStatusMutation.error.message : null);
   const errorMessage = formError ?? mutationError;
@@ -86,6 +106,39 @@ export default function UsersAdminPage() {
 
   const handleToggleStatus = async (userId: number, isActive: boolean) => {
     await updateUserStatusMutation.mutateAsync({ userId, isActive });
+  };
+
+  const openResetPassword = (user: UserDto) => {
+    updateUserPasswordMutation.reset();
+    setFormError(null);
+    setResetSuccess(null);
+    setResetPassword('');
+    setResetPasswordConfirm('');
+    setShowPasswords(false);
+    setResetTarget(user);
+  };
+
+  const handleCloseReset = () => {
+    setResetTarget(null);
+    setResetPassword('');
+    setResetPasswordConfirm('');
+    setResetSuccess(null);
+    updateUserPasswordMutation.reset();
+  };
+
+  const handleResetPassword = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!resetTarget) return;
+    if (resetPassword !== resetPasswordConfirm) {
+      setFormError('Las contraseñas no coinciden');
+      return;
+    }
+
+    setFormError(null);
+    await updateUserPasswordMutation.mutateAsync({ userId: resetTarget.id, password: resetPassword });
+    setResetSuccess(`Contraseña actualizada para ${resetTarget.email}.`);
+    setResetPassword('');
+    setResetPasswordConfirm('');
   };
 
   return (
@@ -134,6 +187,9 @@ export default function UsersAdminPage() {
                   const changed = draft !== user.role.id;
                   const isCurrentUser = user.id === auth.session?.user?.id;
                   const isAdminUser = user.role.type === 'ADMIN';
+                  const isPrincipalAccount =
+                    user.email === 'admin@umoar.edu.sv' || user.role.name === 'Administrador principal';
+                  const canChangePassword = isCurrentUser || isPrincipalAdmin;
                   const cannotDeactivate = user.isActive && (isCurrentUser || isAdminUser);
                   return (
                     <div key={user.id} className={styles.dataRow}>
@@ -149,28 +205,44 @@ export default function UsersAdminPage() {
                         </div>
                       </div>
                       <div className={styles.rowActions}>
-                        <select
-                          className="input"
-                          style={{ minWidth: '160px' }}
-                          value={draft}
-                          onChange={(e) =>
-                            setRoleDrafts((prev) => ({ ...prev, [user.id]: Number(e.target.value) }))
-                          }
-                        >
-                          {roleOptions.map((role) => (
-                            <option key={role.value} value={role.value}>
-                              {role.label}
-                            </option>
-                          ))}
-                        </select>
-                        {changed && (
+                        {isPrincipalAccount ? (
+                          <span className={styles.chip}>Rol fijo</span>
+                        ) : (
+                          <>
+                            <select
+                              className="input"
+                              style={{ minWidth: '160px' }}
+                              value={draft}
+                              onChange={(e) =>
+                                setRoleDrafts((prev) => ({ ...prev, [user.id]: Number(e.target.value) }))
+                              }
+                            >
+                              {roleOptions.map((role) => (
+                                <option key={role.value} value={role.value}>
+                                  {role.label}
+                                </option>
+                              ))}
+                            </select>
+                            {changed && (
+                              <button
+                                className="button button--primary"
+                                type="button"
+                                onClick={() => handleSaveRole(user.id)}
+                                disabled={isSubmitting}
+                              >
+                                {updateUserRoleMutation.isPending ? 'Guardando...' : 'Guardar'}
+                              </button>
+                            )}
+                          </>
+                        )}
+                        {canChangePassword && (
                           <button
-                            className="button button--primary"
+                            className="button button--ghost"
                             type="button"
-                            onClick={() => handleSaveRole(user.id)}
+                            onClick={() => openResetPassword(user)}
                             disabled={isSubmitting}
                           >
-                            {updateUserRoleMutation.isPending ? 'Guardando...' : 'Guardar'}
+                            {isCurrentUser ? 'Cambiar contraseña' : 'Restablecer contraseña'}
                           </button>
                         )}
                         <button
@@ -287,6 +359,89 @@ export default function UsersAdminPage() {
                   </button>
                   <button className="button button--ghost" type="button" onClick={handleClose} disabled={isSubmitting}>
                     Cancelar
+                  </button>
+                </div>
+              </form>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      <Dialog.Root open={Boolean(resetTarget)} onOpenChange={(open) => { if (!open) handleCloseReset(); }}>
+        <Dialog.Portal>
+          <Dialog.Overlay className={styles.modalOverlay} />
+          <Dialog.Content className={styles.modal} aria-describedby={undefined}>
+            <div className={styles.modalHeader}>
+              <div>
+                <Dialog.Title asChild>
+                  <h2>{resetTarget?.id === auth.session?.user?.id ? 'Cambiar contraseña' : 'Restablecer contraseña'}</h2>
+                </Dialog.Title>
+                <p>{resetTarget ? `Usuario: ${resetTarget.name} — ${resetTarget.email}` : 'Actualiza la contraseña del usuario.'}</p>
+              </div>
+              <Dialog.Close asChild>
+                <button className={styles.modalClose} type="button" aria-label="Cerrar">✕</button>
+              </Dialog.Close>
+            </div>
+            <div className={styles.modalBody}>
+              <form className={styles.stack} onSubmit={handleResetPassword}>
+                <label className={styles.stack}>
+                  <span>Nueva contraseña</span>
+                  <div className={styles.passwordField}>
+                    <input
+                      className={`input ${styles.passwordInput}`}
+                      type={showPasswords ? 'text' : 'password'}
+                      value={resetPassword}
+                      onChange={(e) => {
+                        setFormError(null);
+                        setResetSuccess(null);
+                        setResetPassword(e.target.value);
+                      }}
+                      minLength={6}
+                      required
+                    />
+                    <button className={styles.passwordToggle} type="button" onClick={() => setShowPasswords((v) => !v)} aria-label={showPasswords ? 'Ocultar' : 'Mostrar'}>
+                      {showPasswords ? <EyeClosedIcon /> : <EyeOpenIcon />}
+                    </button>
+                  </div>
+                </label>
+
+                <label className={styles.stack}>
+                  <span>Confirmar contraseña</span>
+                  <div className={styles.passwordField}>
+                    <input
+                      className={`input ${styles.passwordInput}`}
+                      type={showPasswords ? 'text' : 'password'}
+                      value={resetPasswordConfirm}
+                      onChange={(e) => {
+                        setFormError(null);
+                        setResetSuccess(null);
+                        setResetPasswordConfirm(e.target.value);
+                      }}
+                      minLength={6}
+                      required
+                    />
+                    <button className={styles.passwordToggle} type="button" onClick={() => setShowPasswords((v) => !v)} aria-label={showPasswords ? 'Ocultar' : 'Mostrar'}>
+                      {showPasswords ? <EyeClosedIcon /> : <EyeOpenIcon />}
+                    </button>
+                  </div>
+                </label>
+
+                <p className={styles.fieldHint}>
+                  {resetTarget?.id === auth.session?.user?.id
+                    ? 'Usa una contraseña que recuerdes y no la compartas con otras personas.'
+                    : 'Comparte la nueva contraseña únicamente por un canal seguro.'}
+                </p>
+
+                {formError && <p className={styles.confirmError}>{formError}</p>}
+                {resetSuccess && <p className={styles.fieldHint}>{resetSuccess}</p>}
+                {mutationError && !formError && <p className={styles.confirmError}>{mutationError}</p>}
+
+                <div className={styles.actionsRow}>
+                  <button className="button button--primary" type="submit" disabled={isSubmitting}>
+                    {updateUserPasswordMutation.isPending ? 'Actualizando...' : 'Actualizar contraseña'}
+                  </button>
+                  <button className="button button--ghost" type="button" onClick={handleCloseReset} disabled={isSubmitting}>
+                    Cerrar
                   </button>
                 </div>
               </form>

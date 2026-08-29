@@ -5,6 +5,7 @@ import { CreateRoleDto } from './dto';
 @Injectable()
 export class RolesService {
   constructor(private prisma: PrismaService) {}
+  private readonly reservedPrincipalRoleName = 'Administrador principal';
 
   // ============ ROLES ============
 
@@ -31,6 +32,11 @@ export class RolesService {
 
   async getAllRoles() {
     return this.prisma.role.findMany({
+      where: {
+        name: {
+          not: this.reservedPrincipalRoleName,
+        },
+      },
       include: {
         menus: {
           include: {

@@ -34,6 +34,10 @@ export interface UpdateUserStatusDto {
   isActive: boolean;
 }
 
+export interface UpdateUserPasswordDto {
+  password: string;
+}
+
 async function fetchUsers(token: string) {
   return apiRequest<UserDto[]>('/users', {
     method: 'GET',
@@ -59,6 +63,14 @@ async function updateUserRole(token: string, userId: number, data: UpdateUserRol
 
 async function updateUserStatus(token: string, userId: number, data: UpdateUserStatusDto) {
   return apiRequest<UserDto>(`/users/${userId}/status`, {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify(data),
+  });
+}
+
+async function updateUserPassword(token: string, userId: number, data: UpdateUserPasswordDto) {
+  return apiRequest<UserDto>(`/users/${userId}/password`, {
     method: 'PATCH',
     token,
     body: JSON.stringify(data),
@@ -117,6 +129,21 @@ export function useUpdateUserStatusMutation() {
     mutationFn: async ({ userId, isActive }: { userId: number; isActive: boolean }) => {
       if (!auth.session?.accessToken) throw new Error('No autenticado');
       return updateUserStatus(auth.session.accessToken, userId, { isActive });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+}
+
+export function useUpdateUserPasswordMutation() {
+  const auth = useAuthContext();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ userId, password }: { userId: number; password: string }) => {
+      if (!auth.session?.accessToken) throw new Error('No autenticado');
+      return updateUserPassword(auth.session.accessToken, userId, { password });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['users'] });
